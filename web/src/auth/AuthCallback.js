@@ -36,30 +36,42 @@ class AuthCallback extends React.Component {
   }
 
   submitFormPost(redirectUri, responseType, data, state) {
+    console.log("[DEBUG] submitFormPost called with:", {
+      redirectUri,
+      responseType,
+      data: data?.substring?.(0, 50) + "...", // Show first 50 chars
+      state,
+    });
+
     const form = document.createElement("form");
     form.method = "post";
     form.action = redirectUri;
     form.enctype = "application/x-www-form-urlencoded";
+    console.log("[DEBUG] Form created with action:", redirectUri);
 
     if (responseType === "code") {
+      console.log("[DEBUG] Adding code input with value:", data?.substring?.(0, 50) + "...");
       const input = document.createElement("input");
       input.type = "hidden";
       input.name = "code";
       input.value = data;
       form.appendChild(input);
     } else if (responseType === "id_token") {
+      console.log("[DEBUG] Adding id_token input with value:", data?.substring?.(0, 50) + "...");
       const input = document.createElement("input");
       input.type = "hidden";
       input.name = "id_token";
       input.value = data;
       form.appendChild(input);
     } else if (responseType === "token") {
+      console.log("[DEBUG] Adding access_token input with value:", data?.substring?.(0, 50) + "...");
       const input = document.createElement("input");
       input.type = "hidden";
       input.name = "access_token";
       input.value = data;
       form.appendChild(input);
 
+      console.log("[DEBUG] Adding token_type input with value: bearer");
       const tokenTypeInput = document.createElement("input");
       tokenTypeInput.type = "hidden";
       tokenTypeInput.name = "token_type";
@@ -68,6 +80,7 @@ class AuthCallback extends React.Component {
     }
 
     if (state) {
+      console.log("[DEBUG] Adding state input with value:", state);
       const stateInput = document.createElement("input");
       stateInput.type = "hidden";
       stateInput.name = "state";
@@ -75,9 +88,14 @@ class AuthCallback extends React.Component {
       form.appendChild(stateInput);
     }
 
+    console.log("[DEBUG] Form elements:", Array.from(form.elements).map(el => ({name: el.name, value: el.value?.substring?.(0, 50) + "..."})));
     document.body.appendChild(form);
+    console.log("[DEBUG] Submitting form to:", form.action);
     form.submit();
-    setTimeout(() => form.remove(), 1000);
+    setTimeout(() => {
+      console.log("[DEBUG] Removing form from DOM");
+      form.remove();
+    }, 1000);
   }
 
   getInnerParams() {
@@ -130,7 +148,9 @@ class AuthCallback extends React.Component {
   }
 
   UNSAFE_componentWillMount() {
+    console.log("[DEBUG] AuthCallback component mounted, current URL:", window.location.href);
     const params = new URLSearchParams(this.props.location.search);
+    console.log("[DEBUG] URL params:", Object.fromEntries(params));
     const isSteam = params.get("openid.mode");
     let code = params.get("code");
     // WeCom returns "auth_code=xxx" instead of "code=xxx"
@@ -205,6 +225,16 @@ class AuthCallback extends React.Component {
     const concatChar = oAuthParams?.redirectUri?.includes("?") ? "&" : "?";
     const responseMode = oAuthParams?.responseMode || "query"; // Default to "query" if not specified
     const signinUrl = localStorage.getItem("signinUrl");
+    
+    console.log("[DEBUG] OAuth processing started:", {
+      responseType: this.getResponseType(),
+      responseMode,
+      redirectUri: oAuthParams?.redirectUri,
+      state: oAuthParams?.state,
+      applicationName,
+      providerName,
+      method,
+    });
 
     AuthBackend.login(body, oAuthParams)
       .then((res) => {
@@ -229,9 +259,19 @@ class AuthCallback extends React.Component {
               }
 
               const code = res.data;
+              console.log("[DEBUG] Processing code response:", {
+                responseType,
+                responseMode,
+                code: code?.substring?.(0, 50) + "...",
+                redirectUri: oAuthParams?.redirectUri,
+                state: oAuthParams?.state,
+              });
+              
               if (responseMode === "form_post") {
+                console.log("[DEBUG] Using form_post mode for code response");
                 this.submitFormPost(oAuthParams?.redirectUri, responseType, code, oAuthParams?.state);
               } else {
+                console.log("[DEBUG] Using query mode for code response");
                 Setting.goToLink(`${oAuthParams.redirectUri}${concatChar}code=${code}&state=${oAuthParams.state}`);
               }
             // Setting.showMessage("success", `Authorization code: ${res.data}`);
@@ -242,9 +282,19 @@ class AuthCallback extends React.Component {
                 return;
               }
               const token = res.data;
+              console.log("[DEBUG] Processing token/id_token response:", {
+                responseType,
+                responseMode,
+                token: token?.substring?.(0, 50) + "...",
+                redirectUri: oAuthParams?.redirectUri,
+                state: oAuthParams?.state,
+              });
+              
               if (responseMode === "form_post") {
+                console.log("[DEBUG] Using form_post mode for token/id_token response");
                 this.submitFormPost(oAuthParams?.redirectUri, responseType, token, oAuthParams?.state);
               } else {
+                console.log("[DEBUG] Using query mode for token/id_token response");
                 Setting.goToLink(`${oAuthParams.redirectUri}${concatChar}${responseType}=${token}&state=${oAuthParams.state}&token_type=bearer`);
               }
             } else if (responseType === "link") {
